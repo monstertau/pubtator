@@ -2,38 +2,38 @@ import argparse
 import bioc
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='Make some minor fixes to BioC files to make them play nicely with some NER tools')
-	parser.add_argument('--inBiocXML',type=str,required=True,help='Input BioC XML file')
-	parser.add_argument('--outBiocXML',type=str,required=True,help='Output BioC XML file')
-	args = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        description='Make some minor fixes to BioC files to make them play nicely with some NER tools')
+    parser.add_argument('--inBiocXML', type=str, required=True, help='Input BioC XML file')
+    parser.add_argument('--outBiocXML', type=str, required=True, help='Output BioC XML file')
+    args = parser.parse_args()
 
-	pmids = set()
+    pmids = set()
 
-	textLength = 0
+    textLength = 0
 
-	with open(args.inBiocXML,'rb') as f, bioc.BioCXMLDocumentWriter(args.outBiocXML) as writer:
-		parser = bioc.BioCXMLDocumentReader(f)
-		for i,doc in enumerate(parser):
-			if doc.infons['pmid'] in pmids:
-				continue
-			pmids.add(doc.infons['pmid'])
+    with open(args.inBiocXML, 'rb') as f, bioc.BioCXMLDocumentWriter(args.outBiocXML) as writer:
+        parser = bioc.BioCXMLDocumentReader(f)
+        for i, doc in enumerate(parser):
+            if doc.infons['pmid'] in pmids:
+                continue
+            pmids.add(doc.infons['pmid'])
 
-			for passage in doc.passages:
-				if 'section' in passage.infons:
-					passage.infons['type'] = passage.infons['section']
-				else:
-					passage.infons['type'] = 'unknown'
+            for passage in doc.passages:
+                if 'section' in passage.infons:
+                    passage.infons['type'] = passage.infons['section']
+                else:
+                    passage.infons['type'] = 'unknown'
 
-				passage.text = passage.text.strip()
+                passage.text = passage.text.strip()
 
-			thisDocLength = sum( len(passage.text) for passage in doc.passages )
+            thisDocLength = sum(len(passage.text) for passage in doc.passages)
 
-			if len(doc.passages) == 0 or thisDocLength == 0:
-				continue
+            if len(doc.passages) == 0 or thisDocLength == 0:
+                continue
 
-			textLength += thisDocLength
-			
-			writer.write_document(doc)
+            textLength += thisDocLength
 
-	print("textLength = %d" % textLength)
+            writer.write_document(doc)
 
+    print("textLength = %d" % textLength)

@@ -1,34 +1,34 @@
-name: PubTator
+name: NERTagger
 version: 0.1
-url: https://github.com/jakelever/pubtator
 resources:
-   full:
-#      - GNBR
-#      - BIOWORDLISTS
-      - PUBMED:
-         format: bioc
-      - PMCOA:
-         format: bioc
-      - PMCAMC:
-         format: bioc
-   test:
-#      - BIOWORDLISTS
-#     - BIOWORDLISTS_TEST:
-#         rename: BIOWORDLISTS
-      - PUBMED_CUSTOM:
-#pmids: 11763009
-         pmids: 29951342
-         format: bioc
-         rename: PUBMED
+  full:
+    #      - GNBR
+    #      - BIOWORDLISTS
+    - PUBMED:
+        format: bioc
+    # - PMCOA:
+    #     format: bioc
+    # - PMCAMC:
+    #     format: bioc
+  test:
+    - PUBMED_CUSTOM:
+#        pmids: 11763009
+        pmids: 15485686
+        format: bioc
+        rename: PUBMED
 #      - PMCOA_CUSTOM:
 #         pmcids: 5960187
 #         format: bioc
 #         rename: PMCOA
 run:
-    - python fixBioc.py --inBiocXML {IN:PUBMED/%} --outBiocXML {OUT:fixed/%.xml}
-    - python fixBioc.py --inBiocXML {IN:PMCOA/%} --outBiocXML {OUT:fixed/%.xml}
-    - python fixBioc.py --inBiocXML {IN:PMCAMC/%} --outBiocXML {OUT:fixed/%.xml}
-#    - python splitBioc.py --inBioc {IN:fixed/%} --outDir {OUT:split/} --maxLength 10000000
-    - python runTool.py --tool GNormPlus_java --inBioc {IN:fixed/%} --outBioc {OUT:GNormPlus/%} --mem 2 --maxLength 100000
-    - python runTool.py --tool tmVar --inBioc {IN:GNormPlus/%} --outBioc {OUT:GNormPlusAndTmVar/%} --mem 3 --maxLength 100000
-
+  - python fixBioc.py --inBiocXML {IN:PUBMED/%} --outBiocXML {OUT:fixed/%.xml}
+  - python fixBioc.py --inBiocXML {IN:PMCOA/%} --outBiocXML {OUT:fixed/%.xml}
+  - python fixBioc.py --inBiocXML {IN:PMCAMC/%} --outBiocXML {OUT:fixed/%.xml}
+  - python runTool.py --tool dnorm --inBioc {IN:fixed/%} --outBioc {OUT:DNorm/%} --mem 20 --maxLength 100000
+  - python filter.py --type cancerAnnotation --inBioc {IN:DNorm/%} --outBioc {OUT:DNormNormalize/%}
+  - python runTool.py --tool GNormPlus_java --inBioc {IN:DNormNormalize/%} --outBioc {OUT:GNormPlus/%} --mem 20 --maxLength 100000
+  - python runTool.py --tool tmchem --inBioc {IN:DNormNormalize/%} --outBioc {OUT:tmChem/%} --mem 20 --maxLength 100000
+  - python runTool.py --tool tmVar --inBioc {IN:GNormPlus/%} --outBioc {OUT:aggregated/%} --mem 20 --maxLength 100000
+#  - python aggregate.py --input {IN:fixed/%} --outTmChem {IN:tmChem/%} --outDNorm {IN:DNormNormalize/%} --outGNorm {IN:GNormPlus/%} --outTmVar {IN:GNormPlusAndTmVar/%} --output {OUT:aggregated/%}
+  - python filter.py --type geneDrugVarAnnotation --inBioc {IN:aggregated/%} --outBioc {OUT:processed/%}
+  - python add_to_db.py --inBioc {IN:processed/%}
