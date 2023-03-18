@@ -3,10 +3,10 @@ import os
 import sys
 
 from bioc import biocxml
-from dotenv import load_dotenv
 from mongoengine import *
+from dotenv import load_dotenv
 
-from schema import PubmedDocument, PubmedAnnotation, AnnotationType
+from schema import AnnotationType, PubmedDocument, PubmedAnnotation
 
 load_dotenv()
 MONGO_DB = os.getenv('MONGO_DB')
@@ -16,25 +16,31 @@ MONGO_USER = os.getenv('MONGO_USER')
 MONGO_PWD = os.getenv('MONGO_PWD')
 
 
-def get_kb_id(ann_info):
-    kbid = None
+def get_kb_id_pubtator(ann_info):
+    kbids = None
     if 'Chemical' in ann_info['type'] or 'Disease' in ann_info['type']:
-        if ann_info.get('MESH'):
-            kbid = [{'kb_type': 'MESH', 'kb_id': ann_info.get('MESH')}]
+        identifier = ann_info.get('identifier', '')
+        l_identifier = identifier.split(':')
+        if len(l_identifier) > 1:
+            kbids = [{'kb_type': l_identifier[0], 'kb_id': l_identifier[1]}]
+
     elif 'Gene' in ann_info['type']:
-        if ann_info.get('NCBI Gene'):
-            kbid = [{'kb_type': 'NCBI Gene ID', 'kb_id': ann_info.get('NCBI Gene')}]
-    elif ann_info.get('Identifier'):
-        identifiers = ann_info.get('Identifier', '')
+        ncbi_ids = ann_info.get('identifier', '')
+        if len(ncbi_ids) > 0:
+            kbids = [{'kb_type': 'NCBI Gene ID', 'kb_id': ncbi_ids}]
+
+    elif 'Mutation' in ann_info['type']:
+        identifiers = ann_info.get('identifier', '')
         l_identifier = identifiers.split(';')
         has_rs_id = False
         for kb_id in l_identifier:
             if 'RS' in kb_id.split(':')[0]:
                 has_rs_id = True
         if has_rs_id:
-            kbid = [{'kb_type': mut_kb_id.split(':')[0], 'kb_id': mut_kb_id.split(':')[1]} for mut_kb_id in
+            kbids = [{'kb_type': mut_kb_id.split(':')[0], 'kb_id': mut_kb_id.split(':')[1]} for mut_kb_id in
                      l_identifier]
-    return kbid
+
+    return kbids
 
 
 def get_ann_type(ann_info):
@@ -45,7 +51,7 @@ def get_ann_type(ann_info):
         annotation_type = AnnotationType.Disease
     elif 'Gene' in ann_info['type']:
         annotation_type = AnnotationType.Gene
-    elif ann_info.get('Identifier'):
+    elif 'Mutation' in ann_info['type']:
         annotation_type = AnnotationType.Mutation
     return annotation_type
 
@@ -69,29 +75,27 @@ if __name__ == '__main__':
     for document in input_data.documents:
         pubmed_doc = PubmedDocument(pmid=document.id)
         for passage in document.passages:
-            if 'title' in passage.infons.get('section', ''):
+            if 'title' in passage.infons.get('section', '') or 'title' in passage.infons.get('type', ''):
                 pubmed_doc.title = passage.text
 
-            if 'abstract' in passage.infons.get('section', ''):
+            if 'abstract' in passage.infons.get('section', '') or 'abstract' in passage.infons.get('type', ''):
                 pubmed_doc.abstract = passage.text
 
-            PubmedAnnotation.objects(pmid=document.id).delete()
             for i, ann in enumerate(passage.annotations):
-
-                kb_ids = get_kb_id(ann.infons)
+                kb_ids = get_kb_id_pubtator(ann.infons)
                 if not kb_ids:
                     continue
                 pubmed_ann = PubmedAnnotation(pmid=document.id)
                 pubmed_ann.kb_ids = kb_ids
                 pubmed_ann.ann_type = get_ann_type(ann.infons)
-                pubmed_ann.start_offset = ann.locations[0].offset +1
-                pubmed_ann.end_offset = ann.locations[0].offset + ann.locations[0].length +1
+                pubmed_ann.start_offset = ann.locations[0].offset
+                pubmed_ann.end_offset = ann.locations[0].offset + ann.locations[0].length
                 pubmed_ann.ann_text = ann.text
-                pubmed_ann.update(upsert=True,
-                                  set__ann_type=pubmed_ann.ann_type,
-                                  set__kb_ids=pubmed_ann.kb_ids,
-                                  set__start_offset=pubmed_ann.start_offset,
-                                  set__end_offset=pubmed_ann.end_offset,
-                                  set__ann_text=pubmed_ann.ann_text,
-                                  )
-        pubmed_doc.update(upsert=True, set__title=pubmed_doc.title, set__abstract=pubmed_doc.abstract)
+                # pubmed_ann.update(upsert=True, set__kb_ids=pubmed_ann.kb_ids,
+                #                   set__ann_text=pubmed_ann.ann_text,
+                #                   set__ann_type=pubmed_ann.ann_type,
+                #                   set__start_offset=pubmed_ann.start_offset,
+                #                   set__end_offset=pubmed_ann.end_offset)
+                pubmed_ann.save()
+        # pubmed_doc.update(upsert=True, set__title=pubmed_doc.title, set__abstract=pubmed_doc.abstract)
+        pubmed_doc.save()

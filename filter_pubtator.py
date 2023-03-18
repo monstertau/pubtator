@@ -5,33 +5,22 @@ import sys
 from bioc import biocxml
 import bioc
 
+from filter import filter_cancer_ann
+
 
 def filter_gene_drug_var_ann(input_bioc):
     contain_doc = []
     for doc in input_bioc.documents:
-        has_ann = False
+        has_drug_ann = False
+        has_gene_mut_ann = False
         for passage in doc.passages:
             for ann in passage.annotations:
-                if 'Gene' in ann.infons['type'] or 'Mutation' in ann.infons['type'] or 'Chemical' in ann.infons['type']:
-                    contain_doc.append(doc)
-                    has_ann = True
-                    break
-            if has_ann:
-                break
-    input_bioc.documents = contain_doc
-
-
-def filter_cancer_ann(input_bioc):
-    contain_doc = []
-    for doc in input_bioc.documents:
-        has_cancer = False
-        for passage in doc.passages:
-            for ann in passage.annotations:
-                if 'Disease' in ann.infons['type']:
-                    contain_doc.append(doc)
-                    has_cancer = True
-                    break
-            if has_cancer:
+                if 'Gene' in ann.infons['type'] or 'Mutation' in ann.infons['type']:
+                    has_gene_mut_ann = True
+                elif 'Chemical' in ann.infons['type']:
+                    has_drug_ann = True
+            if has_gene_mut_ann and has_drug_ann:
+                contain_doc.append(doc)
                 break
     input_bioc.documents = contain_doc
 
